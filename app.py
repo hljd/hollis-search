@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 import streamlit as st
 
+from periodical_search import render_periodicals
 from hollis_api import HollisClient
 from time_estimator import SearchTimeEstimator
 from spreadsheet_processor import (
@@ -29,11 +30,22 @@ logging.basicConfig(
     level=getattr(logging, os.getenv("HOLLIS_LOG_LEVEL", "WARNING").upper(), logging.WARNING),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-st.set_page_config(page_title="HOLLIS ISBN Search", layout="centered")
-st.title("HOLLIS ISBN Search")
-st.write("Upload a book list, select its ISBN and title columns, and download a checked Excel copy.")
-st.caption("Green: no verified match · Red: one match · Yellow: manual review · Uncolored: search errors")
-uploaded = st.file_uploader("Book spreadsheet", type=["xlsx", "csv", "tsv", "txt"])
+st.set_page_config(page_title="HOLLIS Search", layout="centered")
+search_type = st.selectbox("Search Type", ["ISBN Search (Books)", "Title Search (Periodicals)"])
+periodicals = search_type == "Title Search (Periodicals)"
+if st.session_state.get("active_search_type") != search_type:
+    for key in ("completed_result", "result_signature", "search_elapsed_seconds",
+                "periodical_result", "periodical_signature"):
+        st.session_state.pop(key, None)
+    st.session_state["active_search_type"] = search_type
+st.title("HOLLIS Periodical Title Search" if periodicals else "HOLLIS ISBN Search")
+if periodicals:
+    st.write("Upload a periodical list and generate HOLLIS search links.")
+else:
+    st.write("Upload a book list, select its ISBN and title columns, and download a checked Excel copy.")
+    st.caption("Green: no verified match · Red: one match · Yellow: manual review · Uncolored: search errors")
+uploaded = st.file_uploader("Periodical spreadsheet" if periodicals else "Book spreadsheet",
+                            type=["xlsx", "csv", "tsv", "txt"], key=f"upload:{search_type}")
 if uploaded is None:
     st.stop()
 contents = uploaded.getvalue()
@@ -84,6 +96,40 @@ with st.expander("Preview the first five rows"):
     if sheet.max_column > 12:
         st.caption("This preview shows columns A–L. All columns are available in the selectors below.")
 options = column_options(sheet, header_row)
+if periodicals:
+    if not options:
+        st.error("Choose a header row with a periodical title column.")
+        st.stop()
+    labels = list(options)
+    default = next((i for i, label in enumerate(labels) if "title" in label.lower()), 0)
+    title_label = st.selectbox("Periodical Title Column", labels, index=default,
+                               key=f"periodical_title:{header_context}:{header_row}")
+    signature = (search_type, header_context, header_row, options[title_label])
+    if st.session_state.get("periodical_signature") != signature:
+        st.session_state.pop("periodical_result", None)
+    if st.button("Generate Search Links", disabled=sheet.max_row <= header_row):
+        st.session_state.pop("periodical_result", None)
+        try:
+            result = render_periodicals(workbook, sheet_name, options[title_label], header_row)
+        except Exception:
+            st.error("Could not export the workbook. Check for unusually long titles or unsupported workbook structures.")
+            st.stop()
+        st.session_state["periodical_result"] = result
+        st.session_state["periodical_signature"] = signature
+    completed = st.session_state.get("periodical_result")
+    if completed:
+        output, total, generated, preview = completed
+        st.subheader("Results")
+        for column, (label, value) in zip(st.columns(3), [
+            ("Total rows processed", total), ("Search links generated", generated),
+            ("Rows skipped (blank/invalid titles)", total - generated)]):
+            column.metric(label, value)
+        st.dataframe(preview, hide_index=True, use_container_width=True)
+        st.download_button("Download Excel", output,
+                           file_name=f"Periodical_Search_{Path(uploaded.name).stem}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.stop()
+
 if len(options) < 2:
     st.error("Choose a header row with separate ISBN and title columns.")
     st.stop()

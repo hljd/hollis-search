@@ -317,9 +317,8 @@ def result_notes(result):
     return "\n".join(lines)
 
 
-def render_workbook(workbook, sheet_name, rows, results, header_row=1):
-    sheet = workbook[sheet_name]
-    original_max_col = sheet.max_column
+def insert_output_column(sheet):
+    """Shift cells, merged ranges, and widths to make room for column A."""
     merged_ranges = [copy(area) for area in sheet.merged_cells.ranges]
     dimensions = {name: copy(dim) for name, dim in sheet.column_dimensions.items()}
     sheet.insert_cols(1)  # Classification already finished using original positions.
@@ -338,6 +337,12 @@ def render_workbook(workbook, sheet_name, rows, results, header_row=1):
         if dim.max:
             dim.max += 1
         sheet.column_dimensions[shifted] = dim
+
+
+def render_workbook(workbook, sheet_name, rows, results, header_row=1):
+    sheet = workbook[sheet_name]
+    original_max_col = sheet.max_column
+    insert_output_column(sheet)
     last_col = original_max_col + 1
     header = sheet.cell(header_row, 1)
     header.value = OUTPUT_HEADER

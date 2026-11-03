@@ -17,7 +17,7 @@ The application was originally designed and developed by Chloe Qiu (HSPH ’27).
 - Shows progress, elapsed search time, an estimated remaining time, and a results preview.
 - Downloads a processed Excel workbook while retaining as much of the original workbook as practical.
 
-**Searches are ISBN-only.** The original-title selector is required by the interface, but titles are not currently searched or compared. Title-based searching is planned for a later version.
+**Book searches are ISBN-only.** The original-title selector is required by the book interface, but book titles are not searched or compared. The separate **Title Search (Periodicals)** mode generates links for manual HOLLIS searches; it does not query the catalog or classify holdings.
 
 ## Result colors and Notes
 
@@ -52,6 +52,7 @@ Keep these files together, using the exact names below. Remove download suffixes
 | `hollis_api.py` | API requests, response parsing, ISBN matching, HOLLIS-number extraction, links, and retries. |
 | `isbn_utils.py` | Splitting multi-ISBN cells, normalization, checksum validation, and ISBN-10/ISBN-13 comparison. |
 | `spreadsheet_processor.py` | File import, duplicate handling, recovery pass, Notes, and workbook export. |
+| `periodical_search.py` | Offline periodical-title URL generation and hyperlink workbook export. |
 | `time_estimator.py` | Per-run timing samples, pending searches, and scheduled-wait estimates. |
 | `requirements.txt` | Python dependencies. |
 | `README.md` | Setup and usage documentation. |
@@ -124,7 +125,7 @@ If the command is not found, use `python -m streamlit run app.py` in the activat
 
 ## Using the app
 
-1. Upload a supported file.
+1. Select **ISBN Search (Books)** or **Title Search (Periodicals)**, then upload a supported file.
 2. For text files, check the preview and adjust **Text file options** if the characters or columns look incorrect.
 3. Select the worksheet and its header row. The default is row 1; available choices are within rows 1–5.
 4. Select the ISBN column and a different original-title column. Check these selections carefully.
@@ -133,6 +134,16 @@ If the command is not found, use `python -m streamlit run app.py` in the activat
 7. Review the summary and Notes, then download the checked workbook.
 
 Only nonempty rows below the selected header are processed. The first-five-rows preview shows columns A–L; all eligible columns remain available in the selectors. Changing the file or search settings clears the previous downloadable result. Completed results and elapsed time are retained in the current Streamlit session across ordinary reruns, but are not a permanent run history.
+
+### Periodical title search
+
+Select **Title Search (Periodicals)** before uploading. Choose the worksheet, header row (rows 1–5), and **Periodical Title Column**, then click **Generate Search Links**. This mode accepts the same Excel and text formats as book searches, including single-column files, and requires no API key or network requests.
+
+Titles are converted to text, cut before the first colon, and trimmed only at the ends. Internal spaces, capitalization, punctuation, and Unicode characters are preserved. Only the title portion is URL-encoded (spaces become `%20`). Links use `title,begins_with` and the fixed `facet=rtype,include,journals` filter, along with the specified LibraryCatalog/MyInstitution advanced-search parameters.
+
+The downloaded `Periodical_Search_<original_filename>.xlsx` adds **HOLLIS Periodical Search** in column A on the selected header row. Full URLs are clickable; original titles and other cells shift right without changing their values. Other worksheets remain intact. All rows below the header through the worksheet's last used row are counted, including blank rows. Missing/whitespace-only titles and titles with nothing before the first colon receive blank link cells. The summary reports total rows, generated links, and skipped rows; the preview includes original columns, identified with column letters to distinguish duplicate headers.
+
+Use **Download Excel** to save a new workbook. The original upload is not overwritten. Switching modes clears prior results. The workbook preservation limits below also apply to this export: formula text is retained but references are not rewritten. Extremely long URLs exceeding Excel's cell-text limit prevent export rather than being truncated. Links are generated without checking HOLLIS results or holdings.
 
 ### Supported input formats
 
@@ -202,7 +213,7 @@ Column insertion does **not** repair formula references, table ranges, named ran
 
 ## Deploy through GitHub and Streamlit Community Cloud
 
-1. Commit the five Python modules, `requirements.txt`, this README, and `.gitignore` to the deployed repository branch. Exclude the real secrets file.
+1. Commit all six application Python modules, `requirements.txt`, this README, and `.gitignore` to the deployed repository branch. Exclude the real secrets file.
 2. Connect the repository to Streamlit Community Cloud and select `app.py` as the entry point.
 3. Add `HOLLIS_API_KEY = "REPLACE_WITH_YOUR_API_KEY"` to the app’s private **Secrets** settings, replacing the placeholder there.
 4. Deploy with a compatible Python version, then test a small book list in Sandbox.
@@ -241,4 +252,4 @@ Application logging can include normalized ISBNs, HTTP statuses, retry waits, an
 
 ## Feedback and ongoing development
 
-This app will continue to be updated based on Sandbox testing and staff feedback. When reporting an issue, include the selected environment, input format, header/column selections, expected behavior, and the error message or a small non-sensitive example. Do not include API credentials. Further work includes title-based searching and validation of the workflow against the Production environment.
+This app will continue to be updated based on Sandbox testing and staff feedback. When reporting an issue, include the selected environment, input format, header/column selections, expected behavior, and the error message or a small non-sensitive example. Do not include API credentials. Further work includes book title-based searching and validation of the workflow against the Production environment.
