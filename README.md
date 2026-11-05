@@ -2,7 +2,7 @@
 
 A Python and Streamlit application developed for Harvard Library’s Judaica Division to help staff check spreadsheet book lists against the HOLLIS Library Catalog and identify potential purchase candidates.
 
-> **Development status:** This project is under active development. Current testing uses the **Sandbox environment** through Harvard APIgee. Features, documentation, and search behavior will continue to be updated as staff test the app and provide feedback. The interface also offers Production, but the current testing workflow uses Sandbox.
+> **Active development:** Local/testing deployments use Sandbox; the official Judaica deployment uses Production. Each deployment configures its own environment and API key. Periodical links need no credentials.
 
 ## Original development
 The application was originally designed and developed by Chloe Qiu (HSPH ’27). The project is maintained by the Judaica Division of Harvard Library.
@@ -97,9 +97,18 @@ Create a `.streamlit` folder in the project directory, then create `.streamlit/s
 
 ```toml
 HOLLIS_API_KEY = "REPLACE_WITH_YOUR_API_KEY"
+HOLLIS_ENVIRONMENT = "Sandbox"
 ```
 
-Replace the placeholder locally. The app reads the key from Streamlit secrets and sends it in the **`X-Api-Key`** request header. The API secret is not used. The key must support the environment selected in the app; selecting an environment does not automatically select a different key.
+Keep both settings at the top level, outside any TOML section. The environment is a visible label, not a dropdown. Missing/invalid settings block ISBN searches rather than choosing a default.
+
+| Deployment | Secrets location | Environment | Key |
+| --- | --- | --- | --- |
+| Local | `.streamlit/secrets.toml` | `HOLLIS_ENVIRONMENT = "Sandbox"` | Sandbox key |
+| Testing (`hollissearchtest.streamlit.app`) | App Secrets | `HOLLIS_ENVIRONMENT = "Sandbox"` | Sandbox key |
+| Official (`hollissearch.streamlit.app`) | App Secrets | `HOLLIS_ENVIRONMENT = "Production"` | Production key |
+
+Restart the local app after editing secrets. The environment selects the API endpoint and record-link host. The key is sent in `X-Api-Key`; the API secret is unused. Periodical links need neither setting and always use `hollis.harvard.edu`.
 
 Add these entries to your repository’s `.gitignore` before committing:
 
@@ -129,7 +138,7 @@ If the command is not found, use `python -m streamlit run app.py` in the activat
 2. For text files, check the preview and adjust **Text file options** if the characters or columns look incorrect.
 3. Select the worksheet and its header row. The default is row 1; available choices are within rows 1–5.
 4. Select the ISBN column and a different original-title column. Check these selections carefully.
-5. Select **Sandbox** for the current testing workflow.
+5. Check the environment label configured by the deployment owner.
 6. Click **Search HOLLIS** and follow the progress and timing messages.
 7. Review the summary and Notes, then download the checked workbook.
 
@@ -141,9 +150,15 @@ Select **Title Search (Periodicals)** before uploading. Choose the worksheet, he
 
 Titles are converted to text, cut before the first colon, and trimmed only at the ends. Internal spaces, capitalization, punctuation, and Unicode characters are preserved. Only the title portion is URL-encoded (spaces become `%20`). Links use `title,begins_with` and the fixed `facet=rtype,include,journals` filter, along with the specified LibraryCatalog/MyInstitution advanced-search parameters.
 
-The downloaded `Periodical_Search_<original_filename>.xlsx` adds **HOLLIS Periodical Search** in column A on the selected header row. Full URLs are clickable; original titles and other cells shift right without changing their values. All cells with nonblank content on the selected worksheet receive thin borders on all four sides, including headers and generated search links. Empty and whitespace-only cells retain their existing formatting. Other worksheets remain intact. All rows below the header through the worksheet's last used row are counted, including blank rows. Missing/whitespace-only titles and titles with nothing before the first colon receive blank link cells. The summary reports total rows, generated links, and skipped rows; the preview includes original columns, identified with column letters to distinguish duplicate headers.
+The output is `Periodical_Search_<original_filename>.xlsx`:
 
-Use **Download Excel** to save a new workbook. The original upload is not overwritten. Switching modes clears prior results. The workbook preservation limits below also apply to this export: formula text is retained but references are not rewritten. Extremely long URLs exceeding Excel's cell-text limit prevent export rather than being truncated. Links are generated without checking HOLLIS results or holdings.
+- Column A contains **HOLLIS Periodical Search** with full clickable URLs.
+- All original columns shift right; values and other worksheets are preserved.
+- Thin black borders cover the selected sheet's entire used rectangle, including blank cells. Merged cells retain outer borders.
+- All rows below the header through the last used row count toward the summary. Blank titles and empty prefixes before a colon produce blank links.
+- The preview shows original columns with column letters to distinguish duplicate headers.
+
+Click **Download Excel** to save a new file. Switching modes or updating source code clears previous results. Links do not verify catalog holdings. Formula references are not rewritten; URLs exceeding Excel's 32,767-character limit prevent export.
 
 ### Supported input formats
 
@@ -203,11 +218,11 @@ Row progress measures rows with a result, including provisional failures. It can
 
 ## Excel output and preservation limits
 
-Output is always an `.xlsx` file named `Searched_<original_filename>.xlsx`.
+ISBN output is `Searched_<original_filename>.xlsx`; periodical output is `Periodical_Search_<original_filename>.xlsx`. Neither overwrites the upload.
 
-The app inserts **Notes** in column A of the selected worksheet, with its header on the chosen header row. Original columns shift right. Original worksheets, cell values, formula text, fonts, row heights, and basic styles are retained where supported by openpyxl. Existing column widths and merged-cell ranges are explicitly shifted with the inserted column.
+The ISBN workflow inserts **Notes** in column A of the selected worksheet, with its header on the chosen header row. Original columns shift right. Original worksheets, cell values, formula text, fonts, row heights, and basic styles are retained where supported by openpyxl. Existing column widths and merged-cell ranges are explicitly shifted with the inserted column.
 
-Processed rows receive light green, red, or yellow fills. Borders are applied to the header and processed rows across the original worksheet column span plus Notes. Other worksheets are retained and are not searched in that run. Text files become new workbooks, so they have no original Excel formatting to preserve.
+Processed rows receive light green, red, or yellow fills. Thin black borders are applied to the header and processed rows across the original worksheet column span plus Notes. Other worksheets are retained and are not searched in that run. Text files become new workbooks, so they have no original Excel formatting to preserve.
 
 Column insertion does **not** repair formula references, table ranges, named ranges, filters, or freeze-pane positions. Complex workbook features may not survive an openpyxl round trip unchanged. Ordinary tabular book lists work best; inspect output from complex workbooks. Notes beyond Excel’s 32,767-character cell limit are shortened in the workbook, with the full text retained in the preview.
 
@@ -215,8 +230,8 @@ Column insertion does **not** repair formula references, table ranges, named ran
 
 1. Commit all six application Python modules, `requirements.txt`, this README, and `.gitignore` to the deployed repository branch. Exclude the real secrets file.
 2. Connect the repository to Streamlit Community Cloud and select `app.py` as the entry point.
-3. Add `HOLLIS_API_KEY = "REPLACE_WITH_YOUR_API_KEY"` to the app’s private **Secrets** settings, replacing the placeholder there.
-4. Deploy with a compatible Python version, then test a small book list in Sandbox.
+3. Set `HOLLIS_API_KEY` and `HOLLIS_ENVIRONMENT` in the app’s private **Secrets**, following the deployment table above.
+4. Deploy with a compatible Python version, then test a small book list in the configured environment.
 5. Configure the app’s sharing settings for the intended staff testers and share its URL.
 
 The key stays out of GitHub and the app interface, but is stored on the hosting server so the app can access HOLLIS. Staff upload their spreadsheets to that server for processing. The application builds output in memory and keeps completed output in session state; it does not implement a permanent upload archive.
@@ -227,6 +242,7 @@ Deploy related modules together. Mixing old and new files can produce errors suc
 
 | Problem | What to check |
 | --- | --- |
+| Missing/invalid environment | Set top-level `HOLLIS_ENVIRONMENT` to `"Sandbox"` or `"Production"` in secrets. |
 | Missing API key | Local file must be `.streamlit/secrets.toml`, with `HOLLIS_API_KEY` at the top level; hosted deployments need the same key in Secrets settings. |
 | All ISBNs appear invalid | Confirm the ISBN and title selectors were not swapped, choose the correct header, and check for lost leading zeros or unsupported separators between values. |
 | Garbled text or incorrect columns | Set the text encoding and separator explicitly. |

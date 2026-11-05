@@ -22,7 +22,7 @@ FILLS = {
     "red": PatternFill("solid", fgColor="F7D9D9"),
     "yellow": PatternFill("solid", fgColor="FFF0BD"),
 }
-THIN = Side(style="thin", color="B7B7B7")
+THIN = Side(style="thin", color="FF000000")
 ALL_BORDERS = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 OUTPUT_HEADER = "Notes"
 TEXT_EXTENSIONS = {".csv", ".tsv", ".txt"}
@@ -116,7 +116,6 @@ def read_input(filename, contents, encoding="Auto", delimiter="Auto", import_inf
 
 
 def column_options(sheet, header_row=1):
-    from openpyxl.utils import get_column_letter
     options = {}
     for col in range(1, sheet.max_column + 1):
         header = sheet.cell(header_row, col).value
@@ -321,7 +320,7 @@ def insert_output_column(sheet):
     """Shift cells, merged ranges, and widths to make room for column A."""
     merged_ranges = [copy(area) for area in sheet.merged_cells.ranges]
     dimensions = {name: copy(dim) for name, dim in sheet.column_dimensions.items()}
-    sheet.insert_cols(1)  # Classification already finished using original positions.
+    sheet.insert_cols(1)
     # openpyxl moves cells but not these layout definitions. Shift them so
     # preamble headings and existing column widths stay with their data.
     sheet.merged_cells = MultiCellRange()
@@ -337,6 +336,20 @@ def insert_output_column(sheet):
         if dim.max:
             dim.max += 1
         sheet.column_dimensions[shifted] = dim
+
+
+def set_hyperlink(cell, url):
+    """Add a blue, underlined link while preserving other font attributes."""
+    cell.hyperlink = url
+    font = copy(cell.font)
+    font.color, font.underline = "0563C1", "single"
+    cell.font = font
+
+
+def workbook_bytes(workbook):
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
 
 
 def render_workbook(workbook, sheet_name, rows, results, header_row=1):
@@ -365,10 +378,7 @@ def render_workbook(workbook, sheet_name, rows, results, header_row=1):
             and len(result.matches) == 1
             and result.matches[0].url
         ):
-            output.hyperlink = result.matches[0].url
-            font = copy(output.font)
-            font.color, font.underline = "0563C1", "single"
-            output.font = font
+            set_hyperlink(output, result.matches[0].url)
         for col in range(1, last_col + 1):
             cell = sheet.cell(row, col)
             if result.status in FILLS:
@@ -378,6 +388,4 @@ def render_workbook(workbook, sheet_name, rows, results, header_row=1):
                         "Notes": note})
     for col in range(1, last_col + 1):
         sheet.cell(header_row, col).border = copy(ALL_BORDERS)
-    buffer = io.BytesIO()
-    workbook.save(buffer)
-    return buffer.getvalue(), counts, preview
+    return workbook_bytes(workbook), counts, preview

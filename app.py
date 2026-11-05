@@ -1,4 +1,4 @@
-"""Streamlit interface for HOLLIS ISBN search."""
+"""Streamlit interface for ISBN searches and periodical search links."""
 import hashlib
 import logging
 import os
@@ -7,12 +7,19 @@ from pathlib import Path
 import streamlit as st
 
 from periodical_search import render_periodicals
-from hollis_api import HollisClient
+from hollis_api import BASE_URLS, HollisClient
 from time_estimator import SearchTimeEstimator
 from spreadsheet_processor import (
     classify_rows, column_options, data_rows, read_input, render_workbook,
     ImportErrorMessage, result_notes,
 )
+
+
+def clear_results():
+    """Discard exports and timing when the code or search mode changes."""
+    for key in ("completed_result", "result_signature", "search_elapsed_seconds",
+                "periodical_result", "periodical_signature"):
+        st.session_state.pop(key, None)
 
 
 def format_duration(seconds):
@@ -30,13 +37,22 @@ logging.basicConfig(
     level=getattr(logging, os.getenv("HOLLIS_LOG_LEVEL", "WARNING").upper(), logging.WARNING),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# Results belong to the code that generated them, as well as the input file.
+# Discard old downloadable bytes when a source update triggers a rerun.
+source_files = ("app.py", "spreadsheet_processor.py", "periodical_search.py",
+                "isbn_utils.py", "hollis_api.py")
+source_revision = hashlib.sha256(b"".join(
+    Path(__file__).with_name(name).read_bytes() for name in source_files
+)).hexdigest()
+if st.session_state.get("source_revision") != source_revision:
+    clear_results()
+    st.session_state["source_revision"] = source_revision
+
 st.set_page_config(page_title="HOLLIS Search", layout="centered")
 search_type = st.selectbox("Search Type", ["ISBN Search (Books)", "Title Search (Periodicals)"])
 periodicals = search_type == "Title Search (Periodicals)"
 if st.session_state.get("active_search_type") != search_type:
-    for key in ("completed_result", "result_signature", "search_elapsed_seconds",
-                "periodical_result", "periodical_signature"):
-        st.session_state.pop(key, None)
+    clear_results()
     st.session_state["active_search_type"] = search_type
 st.title("HOLLIS Periodical Title Search" if periodicals else "HOLLIS ISBN Search")
 if periodicals:
@@ -139,8 +155,15 @@ title_default = next((i for i, v in enumerate(labels) if "title" in v.lower()), 
 selection_context = f"{header_context}:{header_row}"
 isbn_label = st.selectbox("ISBN column", labels, index=isbn_default, key=f"isbn:{selection_context}")
 title_label = st.selectbox("Original title column", labels, index=title_default, key=f"title:{selection_context}")
-environment = st.selectbox("HOLLIS environment", ["Sandbox", "Production"])
-st.caption("Use the API key issued for the selected environment.")
+try:
+    environment = st.secrets["HOLLIS_ENVIRONMENT"]
+except (KeyError, FileNotFoundError):
+    environment = None
+if not isinstance(environment, str) or environment.strip() not in BASE_URLS:
+    st.error('Set HOLLIS_ENVIRONMENT to "Sandbox" or "Production" in Streamlit secrets.')
+    st.stop()
+environment = environment.strip()
+st.caption(f"HOLLIS environment: {environment}")
 isbn_col, title_col = options[isbn_label], options[title_label]
 if isbn_col == title_col:
     st.warning("Select different ISBN and title columns.")
