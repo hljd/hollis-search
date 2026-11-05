@@ -1,4 +1,5 @@
 """Generate periodical search links offline and export the original workbook."""
+import re
 from copy import copy
 from urllib.parse import quote
 
@@ -12,7 +13,7 @@ SUFFIX = (",AND&tab=LibraryCatalog&search_scope=MyInstitution&sortby=title"
 
 
 def periodical_url(value):
-    title = "" if value is None else str(value).split(":", 1)[0].strip()
+    title = "" if value is None else re.split(r"[:()\[\]/\\]", str(value), maxsplit=1)[0].strip()
     return PREFIX + quote(title, safe="") + SUFFIX if title else ""
 
 

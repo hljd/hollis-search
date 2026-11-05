@@ -148,14 +148,14 @@ Only nonempty rows below the selected header are processed. The first-five-rows 
 
 Select **Title Search (Periodicals)** before uploading. Choose the worksheet, header row (rows 1–5), and **Periodical Title Column**, then click **Generate Search Links**. This mode accepts the same Excel and text formats as book searches, including single-column files, and requires no API key or network requests.
 
-Titles are converted to text, cut before the first colon, and trimmed only at the ends. Internal spaces, capitalization, punctuation, and Unicode characters are preserved. Only the title portion is URL-encoded (spaces become `%20`). Links use `title,begins_with` and the fixed `facet=rtype,include,journals` filter, along with the specified LibraryCatalog/MyInstitution advanced-search parameters.
+Titles are converted to text, cut before the earliest colon (`:`), parenthesis (`(` or `)`), square bracket (`[` or `]`), or slash (`/` or `\`), and trimmed only at the ends. Internal spaces, capitalization, punctuation, and Unicode characters are preserved. Only the title portion is URL-encoded (spaces become `%20`). Links use `title,begins_with` and the fixed `facet=rtype,include,journals` filter, along with the specified LibraryCatalog/MyInstitution advanced-search parameters.
 
 The output is `Periodical_Search_<original_filename>.xlsx`:
 
 - Column A contains **HOLLIS Periodical Search** with full clickable URLs.
 - All original columns shift right; values and other worksheets are preserved.
 - Thin black borders cover the selected sheet's entire used rectangle, including blank cells. Merged cells retain outer borders.
-- All rows below the header through the last used row count toward the summary. Blank titles and empty prefixes before a colon produce blank links.
+- All rows below the header through the last used row count toward the summary. Blank titles and empty prefixes before a delimiter produce blank links.
 - The preview shows original columns with column letters to distinguish duplicate headers.
 
 Click **Download Excel** to save a new file. Switching modes or updating source code clears previous results. Links do not verify catalog holdings. Formula references are not rewritten; URLs exceeding Excel's 32,767-character limit prevent export.
