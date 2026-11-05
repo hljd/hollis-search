@@ -4,7 +4,7 @@ from copy import copy
 from urllib.parse import quote
 
 from openpyxl.utils import get_column_letter
-from spreadsheet_processor import insert_output_column
+from spreadsheet_processor import ALL_BORDERS, insert_output_column
 
 HEADER = "HOLLIS Periodical Search"
 PREFIX = "https://hollis.harvard.edu/discovery/search?query=title,begins_with,"
@@ -45,6 +45,12 @@ def render_periodicals(workbook, sheet_name, title_col, header_row=1):
             f"{get_column_letter(col)} — {sheet.cell(header_row, col).value or '(blank header)'}":
                 '' if sheet.cell(row, col).value is None else str(sheet.cell(row, col).value)
             for col in range(2, sheet.max_column + 1)}})
+    # Match ISBN export borders, but leave empty/whitespace-only cells alone.
+    # Zero, False, dates, and formula text are meaningful cell values too.
+    for cells in sheet.iter_rows():
+        for cell in cells:
+            if cell.value is not None and str(cell.value).strip():
+                cell.border = copy(ALL_BORDERS)
     buffer = io.BytesIO()
     workbook.save(buffer)
     count = sum(bool(url) for url in urls.values())
