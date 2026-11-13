@@ -3,6 +3,7 @@ import re
 from copy import copy
 from urllib.parse import quote
 
+from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from spreadsheet_processor import ALL_BORDERS, insert_output_column, set_hyperlink, workbook_bytes
 
@@ -42,6 +43,7 @@ def render_periodicals(workbook, sheet_name, title_col, header_row=1):
         if url:
             cell = sheet.cell(row, 1, url)
             set_hyperlink(cell, url)
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
         preview.append({HEADER: url, **{
             label:
                 '' if sheet.cell(row, col).value is None else str(sheet.cell(row, col).value)
