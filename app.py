@@ -140,7 +140,7 @@ if periodicals:
             ("Total rows processed", total), ("Search links generated", generated),
             ("Rows skipped (blank/invalid titles)", total - generated)]):
             column.metric(label, value)
-        st.dataframe(preview, hide_index=True, use_container_width=True)
+        st.dataframe(preview, hide_index=True, width="stretch")
         st.download_button("Download Excel", output,
                            file_name=f"Periodical_Search_{Path(uploaded.name).stem}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -272,6 +272,6 @@ if completed and st.session_state.get("result_signature") == signature:
               ("Search errors", counts.get("white", 0))]
     for column, (label, value) in zip(st.columns(5), values):
         column.metric(label, value)
-    st.dataframe(preview, hide_index=True, use_container_width=True)
+    st.dataframe(preview, hide_index=True, width="stretch")
     st.download_button("Download checked workbook", data=output, file_name=filename,
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
